@@ -1,0 +1,4 @@
+# Each app team owns its app; the architecture guard stays with the platform team.
+*                               @johnniemarbles
+/architecture.config.json       @johnniemarbles
+/scripts/architecture/          @johnniemarbles

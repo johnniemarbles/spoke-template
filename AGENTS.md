@@ -8,7 +8,7 @@
 
 ## 1. The mental model, in one paragraph
 
-Four repo kinds. `platform-hub` is the only code that talks to outside providers (Stripe, Razorpay, Twilio, SES, AI models, Cognito's backing calls) and holds their keys. `platform-core` is one Turborepo holding the foundation (identity adapter, tenancy, hierarchy, roles, core records) plus one package per shared module (scheduling, CRM/lead, GTM, LMS, communication, tasks/forms), all loaded into one `platform-api` service per region. `spoke-template` is the starter every new app is cloned from. Your app is a fourth repo, built from `spoke-template`, that owns only what's genuinely industry-specific — nothing else.
+Four repo kinds. `platform/hub` is the only code that talks to outside providers (Stripe, Razorpay, Twilio, SES, AI models, Cognito's backing calls) and holds their keys. `platform/core` is one Turborepo holding the foundation (identity adapter, tenancy, hierarchy, roles, core records) plus one package per shared module (scheduling, CRM/lead, GTM, LMS, communication, tasks/forms), all loaded into one `platform-api` service per region. `spoke-template` is the starter every new app is cloned from. Your app is a fourth repo, built from `spoke-template`, that owns only what's genuinely industry-specific — nothing else.
 
 **The one rule that decides almost everything**: your app repo never imports a provider SDK, never copies module code, and never talks to a database directly. It talks to `platform-api` over HTTP with a signed identity token, and `platform-api` talks to `hub-api` on your behalf when a provider operation (send an email, charge a card, call an AI model) is needed. You never see a provider credential. You never see another tenant's data. You never bypass a permission check by hand-rolling one in your app.
 
@@ -17,9 +17,9 @@ Four repo kinds. `platform-hub` is the only code that talks to outside providers
 ## 2. Before you write any code
 
 1. **Read the plan.** At minimum, the sections: "Building a new app," "Accounts and tenants," "Identity, tenants, users and roles," and the acceptance-tests table. If you don't have a copy, ask for it — don't proceed from memory of a summary.
-2. **Read `AI-WORK-ORDER.md`** in `platform-hub` and `platform-core` to see what's actually shipped versus planned. The plan describes the target architecture; the work order describes current reality. They will disagree in places — reality wins for "what can I call today," the plan wins for "what should this look like eventually."
-3. **Write a one-page brief for the app** (the plan calls for this explicitly): list every feature, and sort each one into exactly one of three buckets — *foundation/shared module* (platform-core), *provider integration* (platform-hub), or *industry-specific* (your app). If a feature doesn't obviously sort, that's a flag to resolve before coding, not during.
-4. **Check what already exists.** Before building anything, check whether `platform-core` already has the module you need (scheduling, lead/CRM, communication, GTM, learning as of this writing) and whether `platform-api` already exposes a route for it. Building a second copy of something that exists in a module is exactly the mistake the plan's layering exists to prevent.
+2. **Read `AI-WORK-ORDER.md`** in `platform/hub` and `platform/core` to see what's actually shipped versus planned. The plan describes the target architecture; the work order describes current reality. They will disagree in places — reality wins for "what can I call today," the plan wins for "what should this look like eventually."
+3. **Write a one-page brief for the app** (the plan calls for this explicitly): list every feature, and sort each one into exactly one of three buckets — *foundation/shared module* (platform/core), *provider integration* (platform/hub), or *industry-specific* (your app). If a feature doesn't obviously sort, that's a flag to resolve before coding, not during.
+4. **Check what already exists.** Before building anything, check whether `platform/core` already has the module you need (scheduling, lead/CRM, communication, GTM, learning as of this writing) and whether `platform-api` already exposes a route for it. Building a second copy of something that exists in a module is exactly the mistake the plan's layering exists to prevent.
 
 ---
 
@@ -43,8 +43,8 @@ Confirm `architecture.config.json` and `scripts/architecture/check.ts` came over
 
 Run every feature through this in order — stop at the first "yes":
 
-1. **Does it talk to an external provider** (send an SMS, charge a card, call an LLM, verify a domain)? → `platform-hub`. Your app never does this directly, ever, including through a "just for this app" exception — exceptions are limited to the plan's named list (browser integrations, presigned uploads, customer-run egress), not general provider access.
-2. **Would a second app plausibly need the same capability** (scheduling, a CRM record, sending a templated email, a lead pipeline, course content)? → a `platform-core` module. If the module doesn't exist yet, that's a Gate 3-style extraction/build, not something you inline into your app to move faster — inlining it means Tress-Lounge or Realtors rebuilds it from scratch later instead of reusing it.
+1. **Does it talk to an external provider** (send an SMS, charge a card, call an LLM, verify a domain)? → `platform/hub`. Your app never does this directly, ever, including through a "just for this app" exception — exceptions are limited to the plan's named list (browser integrations, presigned uploads, customer-run egress), not general provider access.
+2. **Would a second app plausibly need the same capability** (scheduling, a CRM record, sending a templated email, a lead pipeline, course content)? → a `platform/core` module. If the module doesn't exist yet, that's a Gate 3-style extraction/build, not something you inline into your app to move faster — inlining it means Tress-Lounge or Realtors rebuilds it from scratch later instead of reusing it.
 3. **Everything else** — the industry-specific business logic, screens, and rules that make Dentex a dental-chair booking app rather than a hair-salon app — lives in your app repo.
 
 If you're unsure whether something is shared or industry-specific, default to industry-specific first (your app repo) and extract it into a module later once a second app actually needs it. Don't speculatively build shared infrastructure for apps that don't exist yet.
@@ -65,11 +65,11 @@ Cognito user pool (one per region — your app shares it with every other app in
 Your app's SDK (apps/web/src/platform/sdk.ts in your repo)
     │  3. calls platform-api with  Authorization: Bearer <ID token>
     ▼
-platform-api  (platform-core/apps/platform-api — shared service, not yours to fork)
+platform-api  (platform/core/apps/platform-api — shared service, not yours to fork)
     │  4. verifies the ID token, resolves your tenant + membership + permissions
     │  5. for anything needing a provider, mints a short-lived scope token and calls the hub
     ▼
-hub-api  (platform-hub/apps/hub-api — never called directly by your app)
+hub-api  (platform/hub/apps/hub-api — never called directly by your app)
 ```
 
 **Your app's own code only ever touches step 3.** You write a thin typed client, modeled on what's already in `dentex-v2/apps/web/src/platform/`:
@@ -86,13 +86,13 @@ hub-api  (platform-hub/apps/hub-api — never called directly by your app)
 
 This will happen constantly early on — right now `platform-api` exposes exactly `GET /v1/me`. You have three honest options, and the choice follows the same sort from Section 4:
 
-**(a) It's a thin, industry-specific route** (e.g. Dentex's "create a booking" endpoint, which is industry logic — scheduling a dental chair — wrapping a shared module's primitive): add a route under `platform-api/src/routes/`, scoped to your app's permission keys, following the existing `me.ts` route's shape (read the verified claims off `HandlerContext`, do the work inside the transaction `withRequestContext` already opened for you, return a plain object). This is the right place for "Dentex's booking creates a row via `@platform-core/scheduling` and asks the hub to send a confirmation" — that's what the existing `POST /v1/bookings` design in the Gate 4 Wave 1b handoff does.
+**(a) It's a thin, industry-specific route** (e.g. Dentex's "create a booking" endpoint, which is industry logic — scheduling a dental chair — wrapping a shared module's primitive): add a route under `platform-api/src/routes/`, scoped to your app's permission keys, following the existing `me.ts` route's shape (read the verified claims off `HandlerContext`, do the work inside the transaction `withRequestContext` already opened for you, return a plain object). This is the right place for "Dentex's booking creates a row via `@platform/core/scheduling` and asks the hub to send a confirmation" — that's what the existing `POST /v1/bookings` design in the Gate 4 Wave 1b handoff does.
 
 Important nuance as of today: `platform-api` currently hardcodes `PLATFORM_APP_ID` as a single value per deployment. The plan's actual shape is **one `platform-api` per region, shared by every app** — not one per app. Before a second app (e.g. Tress-Lounge) goes live, this needs fixing: `appId` should come from the resolved tenant/host, not a fixed env var, and routes should be registered per-app rather than assumed single-app. Flag this explicitly if you're the agent that onboards app #2 — don't just bump the env var and ship two separate `platform-api` deployments; that silently defeats the "one login works across every app a tenant has switched on" design goal.
 
-**(b) It needs a module that doesn't exist yet** (e.g. nothing like scheduling exists for a concept your app needs): this is a `platform-core` module build, scoped and tested like the existing modules (scheduling, lead, gtm, learning). It depends only on foundation + core-records + contracts — never on another module directly. Write it as its own package, with its own migration, before wiring a `platform-api` route to it.
+**(b) It needs a module that doesn't exist yet** (e.g. nothing like scheduling exists for a concept your app needs): this is a `platform/core` module build, scoped and tested like the existing modules (scheduling, lead, gtm, learning). It depends only on foundation + core-records + contracts — never on another module directly. Write it as its own package, with its own migration, before wiring a `platform-api` route to it.
 
-**(c) It needs a new provider**: this is a `platform-hub` addition — a new adapter package or an extension of `@platform-hub/communication`/`provider-registry`, plus a `connector_grants` row scoping which tenants/apps can use it. Your app never imports the provider's SDK even transitively through this path; it only ever sees the result through `platform-api`.
+**(c) It needs a new provider**: this is a `platform/hub` addition — a new adapter package or an extension of `@platform/hub/communication`/`provider-registry`, plus a `connector_grants` row scoping which tenants/apps can use it. Your app never imports the provider's SDK even transitively through this path; it only ever sees the result through `platform-api`.
 
 In all three cases: write the route/module/adapter, write its tests (pglite for DB-touching code, matching the existing test patterns), run `check:architecture`, and only then wire your app's SDK method to call it.
 
@@ -106,7 +106,7 @@ Three honest categories, all going through `platform-api`:
 - **Module data** (a scheduling slot, a CRM lead, a course, a sent message): a typed method on your SDK calling a `platform-api` route that itself calls the module's exported functions inside the request's transaction. The module enforces tenant isolation via the server-set Postgres GUCs — you never pass a tenant ID from the client; it's derived server-side from the verified identity token on every request. Trying to pass your own `tenantId` in a request body and have the server trust it is exactly the vulnerability the whole scope-token design exists to prevent — don't do it, and don't build a route that accepts one.
 - **Provider-backed data** (did this email actually get delivered, what's this customer's subscription status): still a `platform-api` route, which internally calls the hub with a scope token. You never get a direct answer from Resend, Stripe, or Twilio in your app code.
 
-If you find yourself writing a SQL query in your app repo, or an `import ... from 'stripe'` / `'twilio'` / `'resend'` anywhere outside `platform-hub`, stop — that's the architecture guard's job to catch, and it will fail the build; don't work around it.
+If you find yourself writing a SQL query in your app repo, or an `import ... from 'stripe'` / `'twilio'` / `'resend'` anywhere outside `platform/hub`, stop — that's the architecture guard's job to catch, and it will fail the build; don't work around it.
 
 ---
 
@@ -150,8 +150,8 @@ Straight from the plan's own "Gate before launch" bullet, applied at the level o
 
 This traces the actual decisions for Dentex's "book a patient into a chair" feature. As of this writing, steps 1–3 and the identity/`\`.me()`\`` slice of steps 4–6 are shipped and test-passing; the booking route itself (steps 4–7) is a designed, not-yet-executed plan (see the Gate 4 Wave 1b handoff) — included here because it's the clearest worked example of the full pattern, not because it's already live. Check the relevant repo's current state before assuming any specific step is done.
 
-1. Brief line: "a dentist can book a patient into a chair and the patient gets a confirmation." Sorted: *scheduling* (shared — `@platform-core/scheduling`), *confirmation email* (provider — hub communication), *the actual booking form and chair-selection UX* (industry-specific — Dentex app).
-2. Module already existed (`@platform-core/scheduling`, extracted at Gate 3). No new module needed.
+1. Brief line: "a dentist can book a patient into a chair and the patient gets a confirmation." Sorted: *scheduling* (shared — `@platform/core/scheduling`), *confirmation email* (provider — hub communication), *the actual booking form and chair-selection UX* (industry-specific — Dentex app).
+2. Module already existed (`@platform/core/scheduling`, extracted at Gate 3). No new module needed.
 3. Hub route already existed (`POST /v1/communications/email/send`, built at Gate 4 Wave 1a). No new hub work needed.
 4. Plan: add one `platform-api` route, `POST /v1/bookings` — creates the scheduling row, mints a least-privilege scope token (`communication.email.send` only, narrowed from the membership's full permission set), calls the hub.
 5. Plan: add one SDK method, `PlatformApi.createBooking(input)`.

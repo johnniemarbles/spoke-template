@@ -196,3 +196,13 @@ This traces the actual decisions for Dentex's "book a patient into a chair" feat
 7. Plan: pglite integration tests on the `platform-api` route (permission denial, cross-tenant RLS, idempotent email dispatch), manual end-to-end through the actual SPA.
 
 That's the pattern. Everything above Section 11 is how to reproduce steps 1–6 correctly for whatever your app's next feature is — and how to tell, before you start, which steps someone has already done versus which are still just a plan on paper.
+
+---
+
+## 12. How this app stays current
+
+- **Server-side module changes**: Arrive automatically on the next `platform-api` deploy.
+- **Weekly updates (Dependabot)**: Monday's grouped Dependabot PR brings new `@platform-sdk/*` calls and `@platform-ui/*` kits. Merge it after `pnpm run check` passes.
+- **Nightly validation**: The `platform-validate` job runs daily at 08:00 IST (`PLATFORM_DIR=.platform pnpm run platform:validate -- --strict`), listing module deprecations and missing changelog items.
+- **Major versions**: A new major version is never forced into an automatic PR; it is a planned migration with its own dedicated PR.
+

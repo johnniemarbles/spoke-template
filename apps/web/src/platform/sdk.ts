@@ -25,6 +25,7 @@ export class PlatformApiError extends Error {
 
 export class PlatformApi {
   private readonly options: PlatformApiOptions;
+  public modules: Record<string, any> = {};
 
   constructor(options: PlatformApiOptions) {
     this.options = options;

@@ -1,0 +1,19 @@
+name: platform-validate
+on:
+  pull_request:
+  schedule:
+    - cron: '30 2 * * *'   # 08:00 IST daily
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: johnniemarbles/platform
+          path: .platform
+          token: ${{ secrets.PLATFORM_READ_TOKEN }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: PLATFORM_DIR=.platform pnpm run platform:validate -- --strict

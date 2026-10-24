@@ -1,0 +1,11 @@
+{
+  "manifestVersion": 1,
+  "appId": "app_change_me",
+  "slug": "change-me",
+  "displayName": "Change Me",
+  "modules": [],
+  "entities": [],
+  "identityClients": {
+    "dev": [{ "provider": "dev", "poolId": "dev", "clientId": "dev-change-me" }]
+  }
+}

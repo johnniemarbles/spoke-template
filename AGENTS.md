@@ -23,6 +23,14 @@ Four repo kinds. `platform/hub` is the only code that talks to outside providers
 
 ---
 
+## 2.1 First step: the app manifest
+
+Step 1 of any new app: fill `platform.app.json`, then `pnpm run platform:validate`.
+
+`platform.app.json` defines your app id, slug, display name, modules requested, app-owned entities, and identity clients. Validating ensures no unknown or unready modules are referenced, no version drift exists, and no shared module data is accidentally re-implemented as app entities.
+
+---
+
 ## 3. Creating the app repo
 
 ```bash

@@ -31,19 +31,48 @@ Step 1 of any new app: fill `platform.app.json`, then `pnpm run platform:validat
 
 ---
 
-## 3. Creating the app repo
+## 3. Creating the app repo (The New-App Flow)
 
-```bash
-# spoke-template has no customer history to preserve — a plain clone + rename is correct here
-# (contrast with the Gate 1 extractions, which used git-filter-repo to preserve history
-# pulled out of expadio; this is a fresh app, so that doesn't apply)
-git clone https://github.com/johnniemarbles/spoke-template <new-app-name>
-cd <new-app-name>
-rm -rf .git && git init
-# update package.json name, README, architecture.config.json's app identifier
-```
+Follow these 7 steps in exact order:
 
-Confirm `architecture.config.json` and `scripts/architecture/check.ts` came over from the template — these are what enforce rule #1 above. Run `pnpm run check:architecture` immediately after cloning, before adding any code, so you know the baseline is clean.
+1. **Clone the starter template:**
+   ```bash
+   git clone https://github.com/johnniemarbles/spoke-template <slug>
+   cd <slug>
+   rm -rf .git && git init
+   ```
+
+2. **Run the initializer script:**
+   ```bash
+   node --experimental-strip-types scripts/create-app.ts --slug <slug> --name "<App Name>" --modules <module1,module2,...>
+   ```
+   This script configures `package.json`, `platform.app.json`, `index.html`, and `README.md`, then self-deletes.
+
+3. **Add app-owned records:**
+   Add any records genuinely unique to the app into `entities` in `platform.app.json` (only records no platform module covers; the validator will warn if you shadow a module concept).
+
+4. **Validate, plan, and sync:**
+   ```bash
+   pnpm run platform:validate
+   pnpm run platform:plan
+   # Review the plan, then sync:
+   pnpm run platform:sync
+   ```
+
+5. **Verify the platform app pack:**
+   In the `platform` monorepo, verify `core/app-packs/<slug>`, run `pnpm run check`, and commit the generated app pack.
+
+6. **Seed local development environment:**
+   ```bash
+   pnpm run platform:seed-dev
+   ```
+   Copy the printed dev identity token into `apps/web/.env.local` as `VITE_DEV_IDENTITY_TOKEN=<token>`, then start the development server:
+   ```bash
+   pnpm --filter web dev
+   ```
+
+7. **Build screens and business rules:**
+   Build screens and business logic in `apps/web`. When customizing generated entity routes or tests, write custom code below the `// ---- CUSTOM` markers.
 
 ---
 

@@ -51,7 +51,9 @@
         "amazon-cognito-identity-js",
         "aws-jwt-verify"
       ],
-      "allowedPaths": []
+      "allowedPaths": [
+        "apps/web/src/platform"
+      ]
     }
   ],
   "forbiddenPackages": [
